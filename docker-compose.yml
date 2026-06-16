@@ -1,0 +1,134 @@
+version: "3.9"
+
+services:
+  # ===== 核心服务 =====
+  omni-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===== ComfyUI 图片生成 =====
+  comfyui:
+    image: ghcr.io/ai-dock/comfyui:latest
+    ports:
+      - "8188:8188"
+    volumes:
+      - comfyui-models:/workspace/models
+      - comfyui-output:/workspace/output
+      - ./workflows/comfyui:/workspace/user/workflows
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ===== CosyVoice 语音合成 =====
+  cosyvoice:
+    build:
+      context: ./src/omni_agent/modules/voice
+      dockerfile: Dockerfile.cosyvoice
+    ports:
+      - "50000:50000"
+    volumes:
+      - ./models/cosyvoice:/app/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ===== LiveTalking 数字人 =====
+  livetalking:
+    build:
+      context: ./src/omni_agent/modules/digital_human
+      dockerfile: Dockerfile.livetalking
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./models/livetalking:/app/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  # ===== MoneyPrinterTurbo 短视频 =====
+  money-printer:
+    image: ghcr.io/harry0703/money-printer-turbo:latest
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  # ===== 基础设施 =====
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: omniagent
+      POSTGRES_USER: omniagent
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omniagent"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ===== 前端 =====
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - omni-agent
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  pg-data:
+  comfyui-models:
+  comfyui-output:

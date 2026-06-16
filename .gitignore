@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 环境变量
+.env
+
+# 模型文件
+models/
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+*.onnx
+
+# 数据和输出
+data/
+output/
+logs/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Node
+web/node_modules/
+web/.next/
+web/dist/
+
+# Docker
+docker-compose.override.yml
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
